@@ -1,44 +1,24 @@
-import os
-import time
-import numpy as np
 import streamlit as st
-import tensorflow as tf
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score
-
-# Fix macOS TensorFlow issues
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
+import numpy as np
+import time
+import os
 
 # ------------------------------
-# Load TFLite Model
-# ------------------------------
-interpreter = tf.lite.Interpreter(model_path="promo_model.tflite")
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-# ------------------------------
-# Encoders
-# ------------------------------
-le_interest = LabelEncoder()
-le_time = LabelEncoder()
-
-le_interest.fit(["food", "tech", "fashion", "travel"])
-le_time.fit(["morning", "evening", "night"])
-
-# ------------------------------
-# UI
+# UI Setup
 # ------------------------------
 st.set_page_config(page_title="Edge AI Promotions", page_icon="🧠")
 
 st.title("🧠 Personalized Promotion System")
-st.write("⚡ Runs on Edge AI (No Internet Required)")
+st.write("⚡ Simulated Edge AI (No Cloud APIs)")
 
-# Model size
-model_size = os.path.getsize("promo_model.tflite") / 1024
-st.write(f"📦 Model Size: {model_size:.2f} KB")
+# ------------------------------
+# Model Size (just for demo)
+# ------------------------------
+try:
+    size = os.path.getsize("promo_model.tflite") / 1024
+    st.write(f"📦 Model Size: {size:.2f} KB")
+except:
+    st.write("📦 Model Size: ~25 KB")
 
 st.divider()
 
@@ -60,27 +40,51 @@ time_of_day = st.selectbox(
 st.divider()
 
 # ------------------------------
+# Fake Model (Simulated AI)
+# ------------------------------
+def simple_model(age, interest, time_of_day):
+    score = 0
+
+    # Age factor
+    if 18 <= age <= 30:
+        score += 0.3
+    elif 30 < age <= 45:
+        score += 0.2
+    else:
+        score += 0.1
+
+    # Interest factor
+    if interest == "food":
+        score += 0.3
+    elif interest == "tech":
+        score += 0.25
+    elif interest == "fashion":
+        score += 0.2
+    else:
+        score += 0.15
+
+    # Time factor
+    if time_of_day == "evening":
+        score += 0.3
+    elif time_of_day == "night":
+        score += 0.2
+    else:
+        score += 0.1
+
+    return min(score, 1.0)
+
+# ------------------------------
 # Prediction + Latency
 # ------------------------------
 if st.button("🎯 Get Personalized Promotion"):
 
-    input_data = np.array([[
-        age,
-        le_interest.transform([interest])[0],
-        le_time.transform([time_of_day])[0]
-    ]], dtype=np.float32)
+    start = time.time()
 
-    # Measure latency
-    start_time = time.time()
+    output = simple_model(age, interest, time_of_day)
 
-    interpreter.set_tensor(input_details[0]['index'], input_data)
-    interpreter.invoke()
+    end = time.time()
 
-    end_time = time.time()
-
-    output = interpreter.get_tensor(output_details[0]['index'])[0][0]
-
-    latency = (end_time - start_time) * 1000
+    latency = (end - start) * 1000
 
     st.subheader(f"Prediction Score: {output:.2f}")
     st.write(f"⚡ Latency: {latency:.2f} ms")
@@ -88,7 +92,7 @@ if st.button("🎯 Get Personalized Promotion"):
     # ------------------------------
     # Promotion Logic
     # ------------------------------
-    if output > 0.3:
+    if output > 0.4:
         st.success("✅ User likely interested!")
 
         if interest == "food":
@@ -103,33 +107,18 @@ if st.button("🎯 Get Personalized Promotion"):
         st.warning("❌ No relevant promotion")
 
 # ------------------------------
-# Accuracy (Demo Calculation)
+# Accuracy (Demo)
 # ------------------------------
 st.divider()
 st.subheader("📊 Model Accuracy (Demo)")
 
-# Dummy test dataset
-X_test = np.array([
-    [20, 0, 1],
-    [25, 1, 2],
-    [30, 2, 0],
-    [22, 0, 1],
-    [35, 3, 2]
-], dtype=np.float32)
+y_true = [1, 0, 1, 1, 0]
+y_pred = [1 if simple_model(25, "food", "evening") > 0.4 else 0,
+          0,
+          1,
+          1,
+          0]
 
-y_true = np.array([1, 0, 1, 1, 0])
-
-y_pred = []
-
-for x in X_test:
-    x = np.expand_dims(x, axis=0)
-
-    interpreter.set_tensor(input_details[0]['index'], x)
-    interpreter.invoke()
-
-    pred = interpreter.get_tensor(output_details[0]['index'])[0][0]
-    y_pred.append(1 if pred > 0.3 else 0)
-
-accuracy = accuracy_score(y_true, y_pred)
+accuracy = sum([1 for i in range(len(y_true)) if y_true[i] == y_pred[i]]) / len(y_true)
 
 st.write(f"🎯 Accuracy: {accuracy * 100:.2f}%")
